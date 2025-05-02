@@ -1,0 +1,12 @@
+[package]
+name = "safegrad"
+version = "0.1.0"
+edition = "2021"
+description = "A Rust implementation of micrograd - a tiny autograd engine"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+repository = "https://github.com/yourusername/safegrad"
+license = "MIT"
+
+[dependencies]
+# We'll add dependencies as needed
