@@ -5,7 +5,7 @@ edition = "2021"
 description = "A Rust implementation of micrograd - a tiny autograd engine"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
-repository = "https://github.com/yourusername/safegrad"
+repository = "https://github.com/contextua1/safegrad"
 license = "MIT"
 
 [dependencies]
