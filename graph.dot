@@ -1,0 +1,13 @@
+digraph {
+    0 [ label = "d = c*b\ldata: 12.000\lgrad: 1.000" ]
+    1 [ label = "c = a+(b*a)\ldata: -4.000\lgrad: -3.000" ]
+    2 [ label = "a\ldata: 2.000\lgrad: 6.000" ]
+    3 [ label = "b*a\ldata: -6.000\lgrad: -3.000" ]
+    4 [ label = "b\ldata: -3.000\lgrad: -10.000" ]
+    2 -> 1 [ ]
+    4 -> 3 [ ]
+    2 -> 3 [ ]
+    3 -> 1 [ ]
+    1 -> 0 [ ]
+    4 -> 0 [ ]
+}

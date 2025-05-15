@@ -9,4 +9,5 @@ repository = "https://github.com/contextua1/safegrad"
 license = "MIT"
 
 [dependencies]
-# We'll add dependencies as needed
+petgraph = "0.6"
+dot = "0.1"
