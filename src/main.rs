@@ -3,23 +3,31 @@ use safegrad::Value;
 fn main() {
     println!("SafeGrad: A Rust implementation of micrograd");
 
-    // Toy example: build a small graph
-    let a = Value::new(-2.0, Some("a".to_string()));
-    let b = Value::new(3.0, Some("b".to_string()));
-    let e = Value::add(&a, &b, Some("e =a+b".to_string()));
-    let d = Value::mul(&a, &b, Some("d = a*b".to_string()));
-    let f = Value::mul(&d, &e, Some("f = d*e".to_string()));
-    println!("f = d*e = {}", Value::data(&f));
+    // Demonstrate all operations: add, sub, mul, div, relu
+    let a = Value::new(8.0, Some("a".to_string()));
+    let b = Value::new(2.0, Some("b".to_string()));
+    
+    let add_result = Value::add(&a, &b, Some("a+b".to_string()));
+    let sub_result = Value::sub(&a, &b, Some("a-b".to_string()));
+    let mul_result = Value::mul(&add_result, &sub_result, Some("(a+b)*(a-b)".to_string()));
+    let div_result = Value::div(&mul_result, &b, Some("result/b".to_string()));
+    let final_result = Value::relu(&div_result, Some("relu(final)".to_string()));
+    
+    println!("a = {}, b = {}", Value::data(&a), Value::data(&b));
+    println!("a+b = {}", Value::data(&add_result));
+    println!("a-b = {}", Value::data(&sub_result));
+    println!("(a+b)*(a-b) = {}", Value::data(&mul_result));
+    println!("result/b = {}", Value::data(&div_result));
+    println!("relu(final) = {}", Value::data(&final_result));
 
     // Backward pass
-    Value::backward(&f);
-    println!("Gradient of a: {}", Value::grad(&a));
-    println!("Gradient of b: {}", Value::grad(&b));
-    println!("Gradient of e: {}", Value::grad(&e));
-    println!("Gradient of d: {}", Value::grad(&d));
-    println!("Gradient of f: {}", Value::grad(&f));
-    // Export graph to DOT format
-    let dot = Value::export_dot(&f);
+    Value::backward(&final_result);
+    println!("\nGradients:");
+    println!("∂a = {}", Value::grad(&a));
+    println!("∂b = {}", Value::grad(&b));
+    
+    // Export graph
+    let dot = Value::export_dot(&final_result);
     std::fs::write("graph.dot", &dot).expect("Failed to write graph.dot");
-    println!("Graph exported to graph.dot. You can render it with: dot -Tpng graph.dot -o graph.png");
+    println!("\nGraph exported to graph.dot");
 }

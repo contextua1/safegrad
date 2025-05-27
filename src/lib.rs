@@ -56,6 +56,37 @@ impl Value {
         }))
     }
     
+    pub fn relu(a: &ValueRef, label: Option<String>) -> ValueRef {
+        let data = a.borrow().data.max(0.0);
+        Rc::new(RefCell::new(Value {
+            data,
+            grad: 0.0,
+            parents: vec![a.clone()],
+            op: Some("relu".to_string()),
+            label,
+        }))
+    }
+    
+    pub fn sub(a: &ValueRef, b: &ValueRef, label: Option<String>) -> ValueRef {
+        Rc::new(RefCell::new(Value {
+            data: a.borrow().data - b.borrow().data,
+            grad: 0.0,
+            parents: vec![a.clone(), b.clone()],
+            op: Some("-".to_string()),
+            label,
+        }))
+    }
+    
+    pub fn div(a: &ValueRef, b: &ValueRef, label: Option<String>) -> ValueRef {
+        Rc::new(RefCell::new(Value {
+            data: a.borrow().data / b.borrow().data,
+            grad: 0.0,
+            parents: vec![a.clone(), b.clone()],
+            op: Some("/".to_string()),
+            label,
+        }))
+    }
+    
     // Backpropagation
     pub fn backward(val: &ValueRef) {
         // Topological sort
@@ -93,6 +124,23 @@ impl Value {
                     let right = v.borrow().parents[1].clone();
                     left.borrow_mut().grad += grad * right.borrow().data;
                     right.borrow_mut().grad += grad * left.borrow().data;
+                }                Some("relu") => {
+                    let parent = v.borrow().parents[0].clone();
+                    // Derivative of ReLU: 1 if input > 0, else 0
+                    let relu_grad = if parent.borrow().data > 0.0 { 1.0 } else { 0.0 };
+                    parent.borrow_mut().grad += grad * relu_grad;
+                }
+                Some("-") => {
+                    v.borrow().parents[0].borrow_mut().grad += grad;
+                    v.borrow().parents[1].borrow_mut().grad -= grad;
+                }                Some("/") => {
+                    let numerator = v.borrow().parents[0].clone();
+                    let denominator = v.borrow().parents[1].clone();
+                    let denom_data = denominator.borrow().data;
+                    let numer_data = numerator.borrow().data;
+                    
+                    numerator.borrow_mut().grad += grad / denom_data;
+                    denominator.borrow_mut().grad -= grad * numer_data / (denom_data * denom_data);
                 }
                 _ => {}
             }
@@ -149,5 +197,73 @@ impl Value {
         
         build_graph(val, &mut graph, &mut node_map, &mut visited);
         format!("{}", Dot::with_config(&graph, &[Config::EdgeNoLabel]))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_relu_positive() {
+        let a = Value::new(2.0, Some("a".to_string()));
+        let relu_a = Value::relu(&a, Some("relu(a)".to_string()));
+        
+        assert_eq!(Value::data(&relu_a), 2.0);
+        
+        Value::backward(&relu_a);
+        assert_eq!(Value::grad(&a), 1.0);
+        assert_eq!(Value::grad(&relu_a), 1.0);
+    }
+
+    #[test]
+    fn test_relu_negative() {
+        let a = Value::new(-3.0, Some("a".to_string()));
+        let relu_a = Value::relu(&a, Some("relu(a)".to_string()));
+        
+        assert_eq!(Value::data(&relu_a), 0.0);
+        
+        Value::backward(&relu_a);
+        assert_eq!(Value::grad(&a), 0.0);
+        assert_eq!(Value::grad(&relu_a), 1.0);
+    }
+
+    #[test]
+    fn test_relu_zero() {
+        let a = Value::new(0.0, Some("a".to_string()));
+        let relu_a = Value::relu(&a, Some("relu(a)".to_string()));
+        
+        assert_eq!(Value::data(&relu_a), 0.0);
+        
+        Value::backward(&relu_a);
+        assert_eq!(Value::grad(&a), 0.0);
+        assert_eq!(Value::grad(&relu_a), 1.0);
+    }
+
+    #[test]
+    fn test_sub() {
+        let a = Value::new(5.0, Some("a".to_string()));
+        let b = Value::new(3.0, Some("b".to_string()));
+        let c = Value::sub(&a, &b, Some("a - b".to_string()));
+        
+        assert_eq!(Value::data(&c), 2.0);
+        
+        Value::backward(&c);
+        assert_eq!(Value::grad(&a), 1.0);
+        assert_eq!(Value::grad(&b), -1.0);
+    }    #[test]
+    fn test_div() {
+        let a = Value::new(6.0, Some("a".to_string()));
+        let b = Value::new(2.0, Some("b".to_string()));
+        let c = Value::div(&a, &b, Some("a / b".to_string()));
+        
+        assert_eq!(Value::data(&c), 3.0);
+        
+        Value::backward(&c);
+        // For c = a/b:
+        // ∂c/∂a = 1/b = 1/2 = 0.5
+        // ∂c/∂b = -a/b² = -6/4 = -1.5
+        assert_eq!(Value::grad(&a), 0.5);
+        assert_eq!(Value::grad(&b), -1.5);
     }
 }
