@@ -2,10 +2,11 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-// A shared reference to a Value node for graph construction
+pub mod mlp;
+pub use mlp::*;
+
 pub type ValueRef = Rc<RefCell<Value>>;
 
-// The core computational graph node
 #[derive(Debug, Clone)]
 pub struct Value {
     pub data: f64,
@@ -16,7 +17,6 @@ pub struct Value {
 }
 
 impl Value {
-    // Core functionality
     pub fn new(data: f64, label: Option<String>) -> ValueRef {
         Rc::new(RefCell::new(Value {
             data,
@@ -67,6 +67,28 @@ impl Value {
         }))
     }
     
+    pub fn sigmoid(a: &ValueRef, label: Option<String>) -> ValueRef {
+        let data = 1.0 / (1.0 + (-a.borrow().data).exp());
+        Rc::new(RefCell::new(Value {
+            data,
+            grad: 0.0,
+            parents: vec![a.clone()],
+            op: Some("sigmoid".to_string()),
+            label,
+        }))
+    }
+    
+    pub fn tanh(a: &ValueRef, label: Option<String>) -> ValueRef {
+        let data = a.borrow().data.tanh();
+        Rc::new(RefCell::new(Value {
+            data,
+            grad: 0.0,
+            parents: vec![a.clone()],
+            op: Some("tanh".to_string()),
+            label,
+        }))
+    }
+    
     pub fn sub(a: &ValueRef, b: &ValueRef, label: Option<String>) -> ValueRef {
         Rc::new(RefCell::new(Value {
             data: a.borrow().data - b.borrow().data,
@@ -87,6 +109,39 @@ impl Value {
         }))
     }
     
+    pub fn exp(a: &ValueRef, label: Option<String>) -> ValueRef {
+        let data = a.borrow().data.exp();
+        Rc::new(RefCell::new(Value {
+            data,
+            grad: 0.0,
+            parents: vec![a.clone()],
+            op: Some("exp".to_string()),
+            label,
+        }))
+    }
+    
+    pub fn ln(a: &ValueRef, label: Option<String>) -> ValueRef {
+        let data = a.borrow().data.ln();
+        Rc::new(RefCell::new(Value {
+            data,
+            grad: 0.0,
+            parents: vec![a.clone()],
+            op: Some("ln".to_string()),
+            label,
+        }))
+    }
+    
+    pub fn pow(a: &ValueRef, exponent: f64, label: Option<String>) -> ValueRef {
+        let data = a.borrow().data.powf(exponent);
+        Rc::new(RefCell::new(Value {
+            data,
+            grad: 0.0,
+            parents: vec![a.clone()],
+            op: Some(format!("pow_{}", exponent)),
+            label,
+        }))
+    }
+
     // Backpropagation
     pub fn backward(val: &ValueRef) {
         // Topological sort
@@ -113,26 +168,43 @@ impl Value {
         for v in topo.into_iter().rev() {
             let grad = v.borrow().grad;
             let op = v.borrow().op.clone();
-            
-            match op.as_deref() {
+              match op.as_deref() {
                 Some("+") => {
-                    v.borrow().parents[0].borrow_mut().grad += grad;
-                    v.borrow().parents[1].borrow_mut().grad += grad;
-                }
-                Some("*") => {
                     let left = v.borrow().parents[0].clone();
                     let right = v.borrow().parents[1].clone();
-                    left.borrow_mut().grad += grad * right.borrow().data;
-                    right.borrow_mut().grad += grad * left.borrow().data;
-                }                Some("relu") => {
+                    left.borrow_mut().grad += grad;
+                    right.borrow_mut().grad += grad;
+                }                Some("*") => {
+                    let left = v.borrow().parents[0].clone();
+                    let right = v.borrow().parents[1].clone();
+                    let left_data = left.borrow().data;
+                    let right_data = right.borrow().data;
+                    left.borrow_mut().grad += grad * right_data;
+                    right.borrow_mut().grad += grad * left_data;
+                }Some("relu") => {
                     let parent = v.borrow().parents[0].clone();
                     // Derivative of ReLU: 1 if input > 0, else 0
                     let relu_grad = if parent.borrow().data > 0.0 { 1.0 } else { 0.0 };
                     parent.borrow_mut().grad += grad * relu_grad;
                 }
-                Some("-") => {
-                    v.borrow().parents[0].borrow_mut().grad += grad;
-                    v.borrow().parents[1].borrow_mut().grad -= grad;
+                Some("sigmoid") => {
+                    let parent = v.borrow().parents[0].clone();
+                    let sigmoid_val = v.borrow().data;
+                    // Derivative of sigmoid: sigmoid(x) * (1 - sigmoid(x))
+                    let sigmoid_grad = sigmoid_val * (1.0 - sigmoid_val);
+                    parent.borrow_mut().grad += grad * sigmoid_grad;
+                }
+                Some("tanh") => {
+                    let parent = v.borrow().parents[0].clone();
+                    let tanh_val = v.borrow().data;
+                    // Derivative of tanh: 1 - tanh²(x)
+                    let tanh_grad = 1.0 - tanh_val * tanh_val;
+                    parent.borrow_mut().grad += grad * tanh_grad;
+                }                Some("-") => {
+                    let left = v.borrow().parents[0].clone();
+                    let right = v.borrow().parents[1].clone();
+                    left.borrow_mut().grad += grad;
+                    right.borrow_mut().grad -= grad;
                 }                Some("/") => {
                     let numerator = v.borrow().parents[0].clone();
                     let denominator = v.borrow().parents[1].clone();
@@ -141,6 +213,24 @@ impl Value {
                     
                     numerator.borrow_mut().grad += grad / denom_data;
                     denominator.borrow_mut().grad -= grad * numer_data / (denom_data * denom_data);
+                }                Some("exp") => {
+                    let parent = v.borrow().parents[0].clone();
+                    let exp_val = v.borrow().data;
+                    // Derivative of exp(x) is exp(x)
+                    parent.borrow_mut().grad += grad * exp_val;
+                }
+                Some("ln") => {
+                    let parent = v.borrow().parents[0].clone();
+                    let parent_data = parent.borrow().data;
+                    // Derivative of ln(x) is 1/x
+                    parent.borrow_mut().grad += grad / parent_data;
+                }
+                Some(op) if op.starts_with("pow_") => {
+                    let parent = v.borrow().parents[0].clone();
+                    let parent_data = parent.borrow().data;
+                    let exponent: f64 = op.strip_prefix("pow_").unwrap().parse().unwrap();
+                    // Derivative of x^n is n * x^(n-1)
+                    parent.borrow_mut().grad += grad * exponent * parent_data.powf(exponent - 1.0);
                 }
                 _ => {}
             }
@@ -265,5 +355,44 @@ mod tests {
         // ∂c/∂b = -a/b² = -6/4 = -1.5
         assert_eq!(Value::grad(&a), 0.5);
         assert_eq!(Value::grad(&b), -1.5);
+    }
+
+    #[test]
+    fn test_exp() {
+        let a = Value::new(1.0, Some("a".to_string()));
+        let exp_a = Value::exp(&a, Some("exp(a)".to_string()));
+        
+        // exp(1) ≈ 2.718
+        assert!((Value::data(&exp_a) - std::f64::consts::E).abs() < 1e-10);
+        
+        Value::backward(&exp_a);
+        // Derivative of exp(x) is exp(x)
+        assert!((Value::grad(&a) - std::f64::consts::E).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_ln() {
+        let a = Value::new(std::f64::consts::E, Some("a".to_string()));
+        let ln_a = Value::ln(&a, Some("ln(a)".to_string()));
+        
+        // ln(e) = 1
+        assert!((Value::data(&ln_a) - 1.0).abs() < 1e-10);
+        
+        Value::backward(&ln_a);
+        // Derivative of ln(x) is 1/x
+        assert!((Value::grad(&a) - 1.0/std::f64::consts::E).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_pow() {
+        let a = Value::new(2.0, Some("a".to_string()));
+        let pow_a = Value::pow(&a, 3.0, Some("a^3".to_string()));
+        
+        // 2^3 = 8
+        assert_eq!(Value::data(&pow_a), 8.0);
+        
+        Value::backward(&pow_a);
+        // Derivative of x^3 is 3*x^2 = 3*4 = 12
+        assert_eq!(Value::grad(&a), 12.0);
     }
 }

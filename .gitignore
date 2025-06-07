@@ -1,3 +1,8 @@
 /target/
 **/*.rs.bk
 Cargo.lock
+*.py
+
+# Make sure graph files are tracked (don't ignore them)
+!*.dot
+!*.png

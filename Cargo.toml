@@ -7,7 +7,26 @@ authors = ["Şüheda Kozan <your.email@example.com>"]
 readme = "README.md"
 repository = "https://github.com/contextua1/safegrad"
 license = "MIT"
+default-run = "safegrad"
+
+# Binary definitions
+[[bin]]
+name = "safegrad"
+path = "src/main.rs"
+
+[[bin]]
+name = "basic_demo"
+path = "src/bin/basic_demo.rs"
+
+[[bin]]
+name = "xor_demo"
+path = "src/bin/xor_demo.rs"
+
+[[bin]]
+name = "sin_demo"
+path = "src/bin/sin_demo.rs"
 
 [dependencies]
 petgraph = "0.6"
 dot = "0.1"
+rand = "0.8"

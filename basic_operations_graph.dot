@@ -1,0 +1,18 @@
+digraph {
+    0 [ label = "relu(final)\ldata: 30.000\lgrad: 1.000" ]
+    1 [ label = "result/b\ldata: 30.000\lgrad: 1.000" ]
+    2 [ label = "(a+b)*(a-b)\ldata: 60.000\lgrad: 0.500" ]
+    3 [ label = "a+b\ldata: 10.000\lgrad: 3.000" ]
+    4 [ label = "a\ldata: 8.000\lgrad: 8.000" ]
+    5 [ label = "b\ldata: 2.000\lgrad: -17.000" ]
+    6 [ label = "a-b\ldata: 6.000\lgrad: 5.000" ]
+    4 -> 3 [ ]
+    5 -> 3 [ ]
+    3 -> 2 [ ]
+    4 -> 6 [ ]
+    5 -> 6 [ ]
+    6 -> 2 [ ]
+    2 -> 1 [ ]
+    5 -> 1 [ ]
+    1 -> 0 [ ]
+}
